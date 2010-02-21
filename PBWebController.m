@@ -152,6 +152,24 @@
 	[handle readToEndOfFileInBackgroundAndNotify];
 }
 
+- (void) runCommand:(WebScriptObject *)arguments callBack:(WebScriptObject *)callBack
+{
+	[self runCommand:arguments inRepository:repository callBack:callBack];
+}
+
+- (NSString *) outputForCommand:(WebScriptObject *)arguments inputString:(NSString *)input
+{
+	// The JS bridge does not handle JS Arrays, even though the docs say it does. So, we convert it ourselves.
+	int length = [[arguments valueForKey:@"length"] intValue];
+	NSMutableArray *realArguments = [NSMutableArray arrayWithCapacity:length];
+	int i = 0;
+	for (i = 0; i < length; i++)
+		[realArguments addObject:[arguments webScriptValueAtIndex:i]];
+
+	int ret = 42;
+	return [repository outputForArguments:realArguments inputString:input retValue:&ret];
+}
+
 - (void) callSelector:(NSString *)selectorString onObject:(id)object callBack:(WebScriptObject *)callBack
 {
 	NSArray *arguments = [NSArray arrayWithObjects:selectorString, object, nil];

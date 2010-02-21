@@ -324,3 +324,116 @@ var loadCommitDetails = function(data)
 	hideNotification();
 	enableFeatures();
 }
+
+var startEditingCommit = function() {
+	if ($("editor").style.display == "none") {
+		$("editor_step1").style.display = '';
+		$("editor_step2").style.display = 'none';
+		$("editor").style.display = "";
+		args = ['cat-file', 'commit', commit.sha];
+		Controller.runCommand_callBack_(args, function(data) {
+			console.log("git \"" + args.join("\" \"") + "\"\n" + data);
+			
+			// convert dates into a natural format
+			var zf = function(d) { return (d < 10 ? "0"+d : ""+d); }
+			var lines = data.split("\n");
+			var RE = /^(?:author|committer) .* (\d+) [+-]\d+\s*$/;
+			for (var i = 0; i < lines.length; i++) {
+				var line = lines[i];
+				if (RE.exec(line)) {
+					var epoch = parseInt(RegExp.$1);
+					var date = new Date(epoch * 1000)
+					var s = date.getFullYear() + "-" + zf(date.getMonth()) + "-" + zf(date.getDate()) + " " + zf(date.getHours()) + ":" + zf(date.getMinutes()) + ":" + zf(date.getSeconds());
+					lines[i] = line.replace(RegExp.$1, s);
+				}
+			}
+			data = lines.join("\n");
+			
+			$("editor_textarea").value = data;
+		});
+	} else {
+		$("editor").style.display = "none";
+	}
+}
+
+var finishEditingCommit = function() {
+	var args, output;
+	var newCommit = $("editor_textarea").value;
+	
+	// convert dates into a Git format
+	var zf = function(d) { return (d < 10 ? "0"+d : ""+d); }
+	var lines = newCommit.split("\n");
+	var RE = /^(?:author|committer) .* (\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}) [+-]\d+\s*$/;
+	for (var i = 0; i < lines.length; i++) {
+		var line = lines[i];
+		if (RE.exec(line)) {
+			var orig = RegExp.$1;
+			var comp = orig.replace(/[:-]/g, ' ').split(' ');
+			var date = new Date(parseInt(comp[0]), parseInt(comp[1]), parseInt(comp[2]),
+					parseInt(comp[3]), parseInt(comp[4]), parseInt(comp[5]), 0);
+			var epoch = date.getTime() / 1000;
+			lines[i] = line.replace(orig, ""+epoch);
+		}
+	}
+	newCommit = lines.join("\n");
+	
+	// obtain the new object hash
+	args = ['hash-object', '-t', 'commit', '-w', '--stdin'];
+	output = Controller.outputForCommand_inputString_(args, newCommit);
+	console.log("git \"" + args.join("\" \"") + "\"\n" + output);
+	var newHash = output.replace(/\s*$/, '');
+	
+	$("editor_step1").style.display = 'none';
+	$("editor_spinner").style.display = 'none';
+	$("editor_step2").style.display = '';
+	if (newHash == commit.sha) {
+		$("editor_step2_message").innerHTML = 'Nothing changed. <a href="#" onClick="startEditingCommit();return false;" style="color: red;">Close.</a>';
+	} else {
+		$("editor_spinner").style.display = '';
+		$("editor_step2_message").innerHTML = commit.sha + " &rarr; " + newHash;
+		
+		// delete backup refs from previous edit
+		args = ['for-each-ref', '--format=%(refname)', 'refs/original-gitx/'];
+		output = Controller.outputForCommand_inputString_(args, '');
+		console.log("git \"" + args.join("\" \"") + "\"\n" + output);
+		var lines = output.split("\n");
+		for (var i = 0; i < lines.length; i++) {
+			var ref = lines[i].replace(/\s+/g, '');
+			if (ref.length == 0) continue;
+			
+			args = ['update-ref', '-d', ref];
+			output = Controller.outputForCommand_inputString_(args, '');
+			console.log("git \"" + args.join("\" \"") + "\"\n" + output);
+		}
+		
+		// rewrite history
+		args = ['filter-branch', '--parent-filter', "sed 's/" + commit.sha + "/" + newHash + "/'", '--tag-name-filter', 'cat', '--original', 'refs/original-gitx', '--', '--all'];
+		Controller.runCommand_callBack_(args, function(data) {
+			console.log("git \"" + args.join("\" \"") + "\"\n" + data);
+			$("editor_spinner").style.display = 'none';
+			$("editor_step2_message").innerHTML = commit.sha + " &rarr; " + newHash + "<br>" + '<a href="#" onClick="startEditingCommit();return false;" style="color: green;">Done. Close.</a>';
+		});
+		
+		// update any remaining refs pointing to the old commit
+		args = ['for-each-ref', '--format=%(objectname) %(refname)'];
+		output = Controller.outputForCommand_inputString_(args, '');
+		console.log("git \"" + args.join("\" \"") + "\"\n" + output);
+		var lines = output.split("\n");
+		for (var i = 0; i < lines.length; i++) {
+			var line = lines[i].replace(/\s+$/g, '');
+			if (line.length == 0) continue;
+			
+			var fields = line.split(" ");
+			var sha = fields[0], ref = fields[1];
+			
+			if (sha == commit.sha) {
+				args = ['update-ref', '-m', "changed commit message using GitX", ref, newHash, commit.sha];
+				output = Controller.outputForCommand_inputString_(args, '');
+				console.log("git \"" + args.join("\" \"") + "\"\n" + output);
+			}
+		}
+		
+		$("editor").style.display = 'none';
+		Controller.commitMessageUpdated_(newHash);
+	}
+}

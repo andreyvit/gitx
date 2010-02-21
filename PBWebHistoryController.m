@@ -155,4 +155,10 @@ contextMenuItemsForElement:(NSDictionary *)element
 	[[self script] callWebScriptMethod:@"enableFeatures" withArguments:nil];
 }
 
+- (void) commitMessageUpdated:(NSString *)newSHA1
+{
+	[historyController refresh:nil];
+	[historyController selectCommit:newSHA1];
+}
+
 @end

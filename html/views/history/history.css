@@ -180,3 +180,24 @@ div.renamed
 {
 	/*No colour needed right now.*/
 }
+
+#editor {
+	margin: 5px;
+	padding: 3px;
+	clear: both;
+
+	border: 1px solid black;
+	background-color: #f3f3f3;
+
+	font-size: 80%;
+	text-align: center;
+
+	-webkit-border-radius: 2px;
+}
+
+#editor_textarea {
+	display: block;
+	width: 80%;
+	margin-left: auto;
+	margin-right: auto;
+}

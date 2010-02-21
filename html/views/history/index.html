@@ -17,6 +17,9 @@
 			<a class="servicebutton" id="gist" onClick="confirm_gist();return false" href='#'>
 				Gist&nbsp;it
 			</a>
+			<a class="servicebutton" id="edit_commit" onClick="startEditingCommit();return false" href='#'>
+				Edit&nbsp;message
+			</a>
 		</div>
 		<img id="gravatar" src="">
 	</div>
@@ -50,6 +53,19 @@
 		<td id="refs"></td>
 	</tr>
 	</table>
+	<div id="editor" style="display:none;">
+		<div id="editor_step1">
+			<textarea id="editor_textarea" rows="10"></textarea>
+			<div>
+				<a href="#" onClick="startEditingCommit();return false;" style="color: red;">No. Cancel.</a> |
+				<a href="#" onClick="finishEditingCommit();return false;" style="color: green;">Yes. Save my changes.</a>
+			</div>
+		</div>
+		<div id="editor_step2">
+			<img src="../../images/spinner.gif" alt="" id="editor_spinner"></img>
+			<div id="editor_step2_message"></div>
+		</div>
+	</div>
 	<div id="notification" style="display:none;">
 		<img src="../../images/spinner.gif" alt="Spinner" id="spinner"></img>
 		<div id="notification_message"></div>
